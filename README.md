@@ -10,6 +10,7 @@ A complete RESTful API for Cloudflare D1 Database operations with full CRUD (Cre
 - **Update existing records** by ID
 - **Delete records** by ID
 - **Custom SQL queries** for advanced operations
+- **API Key Authentication** for secure access
 - Built-in API documentation at root endpoint
 - CORS enabled for cross-origin requests
 - SQL injection protection
@@ -31,7 +32,41 @@ npx wrangler d1 create d1-database
 # This will output a database_id - copy it to wrangler.toml
 ```
 
-### 3. Update Configuration
+### 3. Configure API Key
+
+**Option A: For Development (using wrangler.toml)**
+
+Edit `wrangler.toml` and set your API key:
+
+```toml
+[vars]
+API_KEY = "your-secret-api-key-here"
+```
+
+**Option B: For Production (using Wrangler Secrets - Recommended)**
+
+Set your API key as a secret (more secure):
+
+```bash
+npx wrangler secret put API_KEY
+# You'll be prompted to enter your API key
+```
+
+**Option C: For Local Development (using .dev.vars)**
+
+Create a `.dev.vars` file in the project root:
+
+```bash
+cp .dev.vars.example .dev.vars
+```
+
+Then edit `.dev.vars` and set your API key:
+
+```
+API_KEY=your-secret-api-key-here
+```
+
+### 4. Update Database Configuration
 
 Edit `wrangler.toml` and replace `your-database-id-here` with your actual database ID:
 
@@ -42,7 +77,7 @@ database_name = "d1-database"
 database_id = "your-actual-database-id"
 ```
 
-### 4. Create Sample Tables (Optional)
+### 5. Create Sample Tables (Optional)
 
 Create a sample schema:
 
@@ -75,6 +110,25 @@ Deploy to Cloudflare Workers:
 npm run deploy
 ```
 
+## Authentication
+
+All API endpoints (except the root documentation page) require authentication via API key.
+
+Include the API key in the request header:
+
+```
+X-API-Key: your-api-key-here
+```
+
+**Without a valid API key, you will receive a 401 Unauthorized response:**
+
+```json
+{
+  "success": false,
+  "error": "Unauthorized: Invalid or missing API key"
+}
+```
+
 ## API Endpoints
 
 ### List All Tables
@@ -85,7 +139,8 @@ GET /tables
 
 **Example:**
 ```bash
-curl https://your-worker.workers.dev/tables
+curl https://your-worker.workers.dev/tables \
+  -H "X-API-Key: your-api-key-here"
 ```
 
 **Response:**
@@ -113,7 +168,8 @@ GET /tables/:tableName?limit=100&offset=0
 
 **Example:**
 ```bash
-curl https://your-worker.workers.dev/tables/users?limit=10&offset=0
+curl https://your-worker.workers.dev/tables/users?limit=10&offset=0 \
+  -H "X-API-Key: your-api-key-here"
 ```
 
 **Response:**
@@ -146,7 +202,8 @@ GET /tables/:tableName/:id
 
 **Example:**
 ```bash
-curl https://your-worker.workers.dev/tables/users/1
+curl https://your-worker.workers.dev/tables/users/1 \
+  -H "X-API-Key: your-api-key-here"
 ```
 
 **Response:**
@@ -175,6 +232,7 @@ Content-Type: application/json
 ```bash
 curl -X POST https://your-worker.workers.dev/tables/users \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
   -d '{
     "name": "Jane Doe",
     "email": "jane@example.com"
@@ -205,6 +263,7 @@ Content-Type: application/json
 ```bash
 curl -X PUT https://your-worker.workers.dev/tables/users/1 \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
   -d '{
     "name": "John Smith",
     "email": "john.smith@example.com"
@@ -231,7 +290,8 @@ DELETE /tables/:tableName/:id
 
 **Example:**
 ```bash
-curl -X DELETE https://your-worker.workers.dev/tables/users/1
+curl -X DELETE https://your-worker.workers.dev/tables/users/1 \
+  -H "X-API-Key: your-api-key-here"
 ```
 
 **Response:**
@@ -257,6 +317,7 @@ Content-Type: application/json
 ```bash
 curl -X POST https://your-worker.workers.dev/query \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
   -d '{
     "query": "SELECT * FROM users WHERE email LIKE ?",
     "params": ["%@example.com"]
@@ -288,6 +349,7 @@ curl -X POST https://your-worker.workers.dev/query \
 All errors return appropriate HTTP status codes:
 
 - `400` - Bad Request (invalid parameters)
+- `401` - Unauthorized (missing or invalid API key)
 - `404` - Not Found (record or table doesn't exist)
 - `500` - Internal Server Error
 
@@ -301,9 +363,11 @@ All errors return appropriate HTTP status codes:
 
 ## Security Features
 
+- **API Key Authentication**: All endpoints (except documentation) require a valid API key via `X-API-Key` header
 - **SQL Injection Protection**: Table names are validated using regex
 - **Parameterized Queries**: All user inputs are bound as parameters
 - **CORS Enabled**: Allows cross-origin requests (configurable)
+- **Secret Management**: Use Wrangler secrets for production deployments
 
 ## Notes
 

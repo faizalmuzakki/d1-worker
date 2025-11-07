@@ -1,0 +1,5 @@
+# Local development environment variables
+# Copy this file to .dev.vars and set your actual values
+# .dev.vars is gitignored for security
+
+API_KEY=your-secret-api-key-here
