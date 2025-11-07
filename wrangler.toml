@@ -1,0 +1,9 @@
+name = "d1-worker"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "d1-database"
+database_id = "your-database-id-here"
