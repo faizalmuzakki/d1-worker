@@ -1,5 +1,6 @@
 export interface Env {
   DB: D1Database;
+  API_KEY: string;
 }
 
 interface JsonResponse {
@@ -18,7 +19,7 @@ export default {
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
     };
 
     // Handle CORS preflight
@@ -27,6 +28,30 @@ export default {
     }
 
     try {
+      // Route: GET / - API documentation (no auth required)
+      if (path === '/' && method === 'GET') {
+        return new Response(getApiDocs(), {
+          headers: { ...corsHeaders, 'Content-Type': 'text/html' },
+        });
+      }
+
+      // API Key Authentication
+      const apiKey = request.headers.get('X-API-Key');
+
+      if (!env.API_KEY) {
+        return jsonResponse({
+          success: false,
+          error: 'API key not configured on server'
+        }, corsHeaders, 500);
+      }
+
+      if (!apiKey || apiKey !== env.API_KEY) {
+        return jsonResponse({
+          success: false,
+          error: 'Unauthorized: Invalid or missing API key'
+        }, corsHeaders, 401);
+      }
+
       // Route: GET /tables - List all tables
       if (path === '/tables' && method === 'GET') {
         const result = await env.DB.prepare(
@@ -184,13 +209,6 @@ export default {
         }, corsHeaders);
       }
 
-      // Route: GET / - API documentation
-      if (path === '/' && method === 'GET') {
-        return new Response(getApiDocs(), {
-          headers: { ...corsHeaders, 'Content-Type': 'text/html' },
-        });
-      }
-
       return jsonResponse({ success: false, error: 'Route not found' }, corsHeaders, 404);
 
     } catch (error: any) {
@@ -248,12 +266,19 @@ function getApiDocs(): string {
   <h1>D1 Database CRUD API</h1>
   <p>RESTful API for Cloudflare D1 Database operations</p>
 
+  <h2>Authentication</h2>
+  <p>All API requests (except this documentation page) require authentication via API key.</p>
+  <p>Include the API key in the request header:</p>
+  <pre>X-API-Key: your-api-key-here</pre>
+  <p><strong>⚠️ Without a valid API key, you will receive a 401 Unauthorized response.</strong></p>
+
   <h2>Endpoints</h2>
 
   <div class="endpoint">
     <span class="method get">GET</span> <code>/tables</code>
     <p>List all tables in the database</p>
-    <pre>curl https://your-worker.workers.dev/tables</pre>
+    <pre>curl https://your-worker.workers.dev/tables \\
+  -H "X-API-Key: your-api-key-here"</pre>
   </div>
 
   <div class="endpoint">
@@ -264,13 +289,15 @@ function getApiDocs(): string {
       <li><code>limit</code> - Number of records to return (default: 100)</li>
       <li><code>offset</code> - Number of records to skip (default: 0)</li>
     </ul>
-    <pre>curl https://your-worker.workers.dev/tables/users?limit=10&offset=0</pre>
+    <pre>curl https://your-worker.workers.dev/tables/users?limit=10&offset=0 \\
+  -H "X-API-Key: your-api-key-here"</pre>
   </div>
 
   <div class="endpoint">
     <span class="method get">GET</span> <code>/tables/:tableName/:id</code>
     <p>Get a specific record by ID</p>
-    <pre>curl https://your-worker.workers.dev/tables/users/1</pre>
+    <pre>curl https://your-worker.workers.dev/tables/users/1 \\
+  -H "X-API-Key: your-api-key-here"</pre>
   </div>
 
   <div class="endpoint">
@@ -278,6 +305,7 @@ function getApiDocs(): string {
     <p>Create a new record</p>
     <pre>curl -X POST https://your-worker.workers.dev/tables/users \\
   -H "Content-Type: application/json" \\
+  -H "X-API-Key: your-api-key-here" \\
   -d '{"name": "John Doe", "email": "john@example.com"}'</pre>
   </div>
 
@@ -286,13 +314,15 @@ function getApiDocs(): string {
     <p>Update an existing record</p>
     <pre>curl -X PUT https://your-worker.workers.dev/tables/users/1 \\
   -H "Content-Type: application/json" \\
+  -H "X-API-Key: your-api-key-here" \\
   -d '{"name": "Jane Doe", "email": "jane@example.com"}'</pre>
   </div>
 
   <div class="endpoint">
     <span class="method delete">DELETE</span> <code>/tables/:tableName/:id</code>
     <p>Delete a record</p>
-    <pre>curl -X DELETE https://your-worker.workers.dev/tables/users/1</pre>
+    <pre>curl -X DELETE https://your-worker.workers.dev/tables/users/1 \\
+  -H "X-API-Key: your-api-key-here"</pre>
   </div>
 
   <div class="endpoint">
@@ -300,6 +330,7 @@ function getApiDocs(): string {
     <p>Execute a custom SQL query (advanced)</p>
     <pre>curl -X POST https://your-worker.workers.dev/query \\
   -H "Content-Type: application/json" \\
+  -H "X-API-Key: your-api-key-here" \\
   -d '{"query": "SELECT * FROM users WHERE email LIKE ?", "params": ["%@example.com"]}'</pre>
   </div>
 
